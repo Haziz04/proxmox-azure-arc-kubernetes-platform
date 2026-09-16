@@ -1,0 +1,65 @@
+---
+- name: Configure and join DC-B K3s worker
+  hosts: dc_b_workers
+  become: true
+  gather_facts: true
+
+  tasks:
+
+    - name: Configure unique hostname
+      ansible.builtin.hostname:
+        name: "{{ inventory_hostname }}"
+
+    - name: Update local hostname mapping
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        regexp: '^127\.0\.1\.1'
+        line: "127.0.1.1 {{ inventory_hostname }}"
+
+    - name: Install required packages
+      ansible.builtin.apt:
+        name:
+          - curl
+          - ca-certificates
+        state: present
+        update_cache: true
+
+    - name: Verify DC-B K3s API is reachable
+      ansible.builtin.wait_for:
+        host: "{{ k3s_server_ip }}"
+        port: 6443
+        timeout: 10
+
+    - name: Download official K3s installer
+      ansible.builtin.get_url:
+        url: https://get.k3s.io
+        dest: /tmp/install-k3s.sh
+        mode: "0755"
+
+    - name: Install K3s agent and join DC-B
+      ansible.builtin.command:
+        cmd: /tmp/install-k3s.sh
+        creates: /etc/systemd/system/k3s-agent.service
+      environment:
+        K3S_URL: "https://{{ k3s_server_ip }}:6443"
+        K3S_TOKEN: "{{ k3s_token }}"
+        K3S_NODE_NAME: "{{ inventory_hostname }}"
+        INSTALL_K3S_VERSION: "{{ k3s_version }}"
+        INSTALL_K3S_EXEC: "agent --node-label {{ worker_label }}"
+      no_log: true
+
+    - name: Ensure K3s agent is enabled and running
+      ansible.builtin.systemd_service:
+        name: k3s-agent
+        enabled: true
+        state: started
+
+    - name: Verify K3s agent is active
+      ansible.builtin.command:
+        cmd: systemctl is-active k3s-agent
+      register: k3s_agent_status
+      changed_when: false
+
+    - name: Display K3s agent status
+      ansible.builtin.debug:
+        msg: "K3s agent status: {{ k3s_agent_status.stdout }}"
