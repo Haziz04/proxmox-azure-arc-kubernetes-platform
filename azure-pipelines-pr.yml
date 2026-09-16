@@ -1,0 +1,42 @@
+trigger: none
+
+pool:
+  name: Proxmox-Lab
+
+steps:
+
+- checkout: self
+
+- bash: |
+    set -e
+
+    cd nvr-app
+
+    python3 -m venv .venv
+    source .venv/bin/activate
+
+    pip install -r requirements-dev.txt
+
+    pytest -v tests/unit
+  displayName: "Unit tests"
+
+- bash: |
+    set -e
+
+    docker build \
+      -t tvms-nvr:pr-$(Build.BuildId) \
+      ./nvr-app
+  displayName: "Build NVR Docker image"
+
+- bash: |
+    set -e
+
+    ./nvr-app/tests/integration/test_container.sh \
+      tvms-nvr:pr-$(Build.BuildId) \
+      pr-$(Build.BuildId)
+  displayName: "Container integration test"
+
+- bash: |
+    docker image rm tvms-nvr:pr-$(Build.BuildId) || true
+  displayName: "Clean temporary image"
+  condition: always()
