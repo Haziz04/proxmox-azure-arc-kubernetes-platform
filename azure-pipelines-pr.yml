@@ -1,7 +1,7 @@
 trigger: none
 
 pool:
-  name: Proxmox-Lab
+  name: Proxmox-Platform
 
 steps:
 
