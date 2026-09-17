@@ -4,7 +4,7 @@ trigger:
       - main
 
 pool:
-  name: Proxmox-Lab
+  name: Proxmox-Platform
 
 variables:
   imageRepository: 'haziz04/tvms-nvr-demo'
