@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: {{ .Release.Name }}-nvr
+
+spec:
+
+  type: {{ .Values.service.type }}
+
+  selector:
+    app: {{ .Release.Name }}-nvr
+
+  ports:
+
+    - port: {{ .Values.service.port }}
+
+      targetPort: {{ .Values.containerPort }}
+
+      nodePort: {{ .Values.service.nodePort }}

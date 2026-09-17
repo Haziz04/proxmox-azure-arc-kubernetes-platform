@@ -1,0 +1,96 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  name: Proxmox-Lab
+
+variables:
+  imageRepository: 'haziz04/tvms-nvr-demo'
+  imageTag: '$(Build.BuildId)'
+
+stages:
+
+# ============================================
+# CI - BUILD OFFICIAL CONTAINER IMAGE
+# ============================================
+
+- stage: CI
+  displayName: 'CI - Build and Push NVR'
+
+  jobs:
+
+  - job: BuildNVR
+    displayName: 'Build official NVR image'
+
+    steps:
+
+    - checkout: self
+
+    - task: Docker@2
+      displayName: 'Build and push image to Docker Hub'
+      inputs:
+        command: buildAndPush
+        containerRegistry: dockerhub-tvms
+        repository: $(imageRepository)
+        dockerfile: $(Build.SourcesDirectory)/nvr-app/Dockerfile
+        buildContext: $(Build.SourcesDirectory)/nvr-app
+        tags: |
+          $(imageTag)
+
+
+# ============================================
+# CD - DEPLOY TO EXISTING DC-B TEST RELEASE
+# ============================================
+
+- stage: CD
+  displayName: 'CD - Deploy NVR to DC-B'
+
+  dependsOn: CI
+
+  jobs:
+
+  - job: DeployNVR
+    displayName: 'Upgrade nvr-test'
+
+    steps:
+
+    - checkout: self
+
+    - bash: |
+        set -e
+
+        echo "Deploying image:"
+        echo "$(imageRepository):$(imageTag)"
+
+        helm upgrade nvr-test \
+          $(Build.SourcesDirectory)/automation/helm/tvms-nvr \
+          -n nvr-test \
+          -f $(Build.SourcesDirectory)/automation/helm/tvms-nvr/values-test.yaml \
+          --set image.repository=$(imageRepository) \
+          --set image.tag=$(imageTag) \
+          --wait \
+          --timeout 2m
+
+      displayName: 'Helm upgrade nvr-test'
+
+    - bash: |
+        set -e
+
+        kubectl rollout status \
+          deployment/nvr-test-nvr \
+          -n nvr-test \
+          --timeout=120s
+
+        echo "Running pod:"
+        kubectl get pods -n nvr-test -o wide
+
+        echo "Running image:"
+        kubectl get pods -n nvr-test \
+          -o custom-columns='POD:.metadata.name,NODE:.spec.nodeName,IMAGE:.spec.containers[0].image,STATUS:.status.phase'
+
+        echo "Application health:"
+        curl -fsS http://192.168.1.102:30083/health
+
+      displayName: 'Verify NVR deployment'

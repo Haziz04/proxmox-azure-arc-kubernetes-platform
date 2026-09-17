@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: {{ .Release.Name }}-nvr
+
+  labels:
+    app: {{ .Release.Name }}-nvr
+
+spec:
+  replicas: {{ .Values.replicaCount }}
+
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-nvr
+
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-nvr
+
+    spec:
+
+      nodeSelector:
+{{ toYaml .Values.nodeSelector | indent 8 }}
+
+      containers:
+
+        - name: lightnvr
+
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+
+          ports:
+
+            - containerPort: {{ .Values.containerPort }}
+
+          readinessProbe:
+
+            tcpSocket:
+              port: {{ .Values.containerPort }}
+
+            initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+
+            periodSeconds: {{ .Values.readinessProbe.periodSeconds }}

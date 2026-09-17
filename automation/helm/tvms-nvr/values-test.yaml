@@ -1,0 +1,10 @@
+replicaCount: 2
+
+service:
+  type: NodePort
+  port: 8080
+  nodePort: 30083
+
+nodeSelector:
+  workload-role: worker
+  kubernetes.io/hostname: dc-b-worker03

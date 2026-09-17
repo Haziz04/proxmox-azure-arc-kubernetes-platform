@@ -1,0 +1,11 @@
+apiVersion: v2
+
+name: tvms-nvr
+
+description: Helm chart for the TVMS-inspired NVR application
+
+type: application
+
+version: 0.1.0
+
+appVersion: "1.0.0"
